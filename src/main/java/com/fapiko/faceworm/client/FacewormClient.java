@@ -4,12 +4,13 @@ import com.tulskiy.keymaster.common.HotKey;
 import com.tulskiy.keymaster.common.HotKeyListener;
 import com.tulskiy.keymaster.common.MediaKey;
 import com.tulskiy.keymaster.common.Provider;
+import org.apache.log4j.Logger;
 import org.zeromq.ZMQ;
 
-import javax.swing.*;
-import java.awt.event.KeyEvent;
-
 public class FacewormClient {
+
+	private boolean shouldTerminate = false;
+	private static Logger logger = Logger.getLogger(FacewormClient.class);
 
 	public void applicationLoop() {
 
@@ -20,42 +21,47 @@ public class FacewormClient {
 
 		Provider provider = Provider.getCurrentProvider(false);
 
+		MyHotKeyListener hotKeyListener = new MyHotKeyListener(this);
+		provider.register(MediaKey.MEDIA_NEXT_TRACK, hotKeyListener);
+		provider.register(MediaKey.MEDIA_PLAY_PAUSE, hotKeyListener);
 
-//		MyHotKeyListener hotKeyListener = new MyHotKeyListener(this);
-		provider.register(MediaKey.MEDIA_NEXT_TRACK, new HotKeyListener() {
-			@Override
-			public void onHotKey(HotKey hotKey) {
-				System.out.println(hotKey);
-			}
-		});
-//		provider.register(MediaKey.MEDIA_PLAY_PAUSE, hotKeyListener);
-//		provider.register(KeyStroke.getKeyStroke(0xAE, 0), hotKeyListener);
-
-		while(true) {
+		while(!shouldTerminate) {
 
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException e) {
-				e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+				e.printStackTrace();
 			}
 		}
 
-//		provider.reset();
-//		provider.stop();
+		provider.reset();
+		provider.stop();
+
+	}
+
+	protected void shutdown() {
+		logger.info("Setting terminate flag");
+		shouldTerminate = true;
 	}
 
 	private class MyHotKeyListener implements HotKeyListener {
 
 		private FacewormClient parent;
+		private Logger logger;
 
 		public MyHotKeyListener(FacewormClient parent) {
+
 			this.parent = parent;
+			logger = Logger.getLogger(MyHotKeyListener.class);
+
 		}
 
 		@Override
 		public void onHotKey(HotKey hotKey) {
 
-			System.out.println(hotKey);
+			logger.info(hotKey);
+			parent.shutdown();
+
 		}
 
 	}
