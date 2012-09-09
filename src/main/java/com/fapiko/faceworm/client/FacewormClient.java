@@ -21,9 +21,9 @@ public class FacewormClient {
 	public void applicationLoop() {
 
 		ZMQ.Context context = ZMQ.context(1);
-		ZMQ.Socket socket = context.socket(ZMQ.PAIR);
+		ZMQ.Socket socket = context.socket(ZMQ.PUB);
 
-		socket.connect("tcp://localhost:5555");
+		socket.connect("tcp://192.168.0.9:5555");
 
 		Provider provider = Provider.getCurrentProvider(false);
 
@@ -119,7 +119,6 @@ public class FacewormClient {
 
 					} else if (hotKey.keyStroke.getKeyCode() == KeyEvent.VK_ESCAPE) {
 
-						payload = new StringBuffer("TERMINATE");
 						parent.shutdown();
 
 					} else {
