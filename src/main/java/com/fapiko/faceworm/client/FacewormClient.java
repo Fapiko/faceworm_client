@@ -18,7 +18,12 @@ public class FacewormClient {
 	private boolean shouldTerminate = false;
 	private static Logger logger = Logger.getLogger(FacewormClient.class);
 
+	private static final int APPLICATION_LOOP_DELAY = 50;
+	private static final int HEALTHCHECK_DELAY = 30000;
+
 	public void applicationLoop() {
+
+		int healthcheckTimer = 0;
 
 		ZMQ.Context context = ZMQ.context(1);
 		ZMQ.Socket socket = context.socket(ZMQ.PUB);
@@ -43,8 +48,16 @@ public class FacewormClient {
 				socket.send(String.valueOf(messageBuffer.poll()).getBytes(), 0);
 			}
 
+			healthcheckTimer += APPLICATION_LOOP_DELAY;
+			if (healthcheckTimer >= HEALTHCHECK_DELAY) {
+
+				socket.send("ACTION|HEALTHCHECK".getBytes(), 0);
+				healthcheckTimer = 0;
+
+			}
+
 			try {
-				Thread.sleep(50);
+				Thread.sleep(APPLICATION_LOOP_DELAY);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
