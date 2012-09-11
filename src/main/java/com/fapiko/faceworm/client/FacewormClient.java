@@ -21,43 +21,35 @@ public class FacewormClient {
 	private static final int APPLICATION_LOOP_DELAY = 50;
 	private static final int HEALTHCHECK_DELAY = 60000;
 	private static final String FACEWORM_SERVER_HOSTNAME = "192.168.0.9";
+	private ZMQ.Context context;
 
+	/**
+	 * Main application loop
+	 */
 	public void applicationLoop() {
 
 		int healthcheckTimer = 0;
 
-		ZMQ.Context context = ZMQ.context(1);
-		ZMQ.Socket socket = context.socket(ZMQ.PUB);
-		ZMQ.Socket socketHealthcheck = context.socket(ZMQ.SUB);
+		context = ZMQ.context(1);
+		ZMQ.Socket socket = instantiatePublisher(5555);
+		ZMQ.Socket socketHealthcheck = instantiateSubscriber(5556, "ACTION");
 
-		socket.connect(String.format("tcp://%s:5555", FACEWORM_SERVER_HOSTNAME));
 		socket.setHWM(1);
 
-		socketHealthcheck.connect(String.format("tcp://%s:5556", FACEWORM_SERVER_HOSTNAME));
-		socketHealthcheck.subscribe("ACTION".getBytes());
+		Provider provider = registerHotkeys();
 
-		Provider provider = Provider.getCurrentProvider(false);
-
-		MyHotKeyListener hotKeyListener = new MyHotKeyListener(this);
-		provider.register(MediaKey.MEDIA_NEXT_TRACK, hotKeyListener);
-		provider.register(MediaKey.MEDIA_PLAY_PAUSE, hotKeyListener);
-		provider.register(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-				hotKeyListener);
-		provider.register(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-				hotKeyListener);
-		provider.register(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-				hotKeyListener);
-
+		byte[] healthcheckMessage;
 		while(!shouldTerminate) {
 
 			while (messageBuffer.size() > 0) {
 				socket.send(String.valueOf(messageBuffer.poll()).getBytes(), 0);
 			}
 
-			byte[] healthcheckMessage = socketHealthcheck.recv(ZMQ.NOBLOCK);
+			healthcheckMessage = socketHealthcheck.recv(ZMQ.NOBLOCK);
 			if (healthcheckMessage != null) {
 
 				healthcheckTimer = 0;
+				healthcheckMessage = null;
 				logger.debug(healthcheckMessage);
 
 			}
@@ -67,13 +59,10 @@ public class FacewormClient {
 			if (healthcheckTimer >= HEALTHCHECK_DELAY) {
 
 				socket.close();
-				socket = context.socket(ZMQ.PUB);
-				socket.connect(String.format("tcp://%s:5555", FACEWORM_SERVER_HOSTNAME));
+				instantiatePublisher(5555);
 
 				socketHealthcheck.close();
-				socketHealthcheck = context.socket(ZMQ.SUB);
-				socketHealthcheck.subscribe("ACTION".getBytes());
-				socketHealthcheck.connect(String.format("tcp://%s:5556", FACEWORM_SERVER_HOSTNAME));
+				instantiateSubscriber(5556, "ACTION");
 
 				logger.debug("Healthcheck failwhale");
 
@@ -94,6 +83,60 @@ public class FacewormClient {
 
 	}
 
+	/**
+	 * Registers the hotkeys and returns the associated provider
+	 * @return provider
+	 */
+	private Provider registerHotkeys() {
+
+		Provider provider = Provider.getCurrentProvider(false);
+
+		MyHotKeyListener hotKeyListener = new MyHotKeyListener(this);
+		provider.register(MediaKey.MEDIA_NEXT_TRACK, hotKeyListener);
+		provider.register(MediaKey.MEDIA_PLAY_PAUSE, hotKeyListener);
+		provider.register(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
+				hotKeyListener);
+		provider.register(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
+				hotKeyListener);
+		provider.register(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
+				hotKeyListener);
+
+		return provider;
+
+	}
+
+	/**
+	 * Instantiates the <strong>sub</strong>scriber side of a Pub/Sub connection
+	 * @param port Port to listen on
+	 * @return Returns the newly created socket
+	 */
+	private ZMQ.Socket instantiateSubscriber(int port, String filter) {
+
+		ZMQ.Socket socket = context.socket(ZMQ.SUB);
+		socket.subscribe(filter.getBytes());
+		socket.connect(String.format("tcp://%s:%d", FACEWORM_SERVER_HOSTNAME, port));
+
+		return socket;
+
+	}
+
+	/**
+	 * Instantiates the <strong>pub</strong>lisher side of a Pub/Sub connection
+	 * @param port Port to listen on
+	 * @return Returns the newly created socket
+	 */
+	private ZMQ.Socket instantiatePublisher(int port) {
+
+		ZMQ.Socket socket = context.socket(ZMQ.PUB);
+		socket.connect(String.format("tcp://%s:%s", FACEWORM_SERVER_HOSTNAME, port));
+
+		return socket;
+
+	}
+
+	/**
+	 * Indicates to the main application loop that it should terminate when done processing the current run
+	 */
 	protected void shutdown() {
 
 		logger.info("Setting terminate flag");
@@ -101,6 +144,11 @@ public class FacewormClient {
 
 	}
 
+	/**
+	 * Getter method to return the message queue
+	 *
+	 * @return messageBuffer
+	 */
 	protected LinkedList<StringBuffer> getMessageBuffer() {
 		return messageBuffer;
 	}
