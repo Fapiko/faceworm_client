@@ -59,10 +59,10 @@ public class FacewormClient {
 			if (healthcheckTimer >= HEALTHCHECK_DELAY) {
 
 				socket.close();
-				instantiatePublisher(5555);
+				socket = instantiatePublisher(5555);
 
 				socketHealthcheck.close();
-				instantiateSubscriber(5556, "ACTION");
+				socketHealthcheck = instantiateSubscriber(5556, "ACTION");
 
 				logger.debug("Healthcheck failwhale");
 
