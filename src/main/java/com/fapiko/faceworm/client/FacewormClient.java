@@ -34,24 +34,21 @@ public class FacewormClient {
 		ZMQ.Socket socket = instantiatePublisher(5555);
 		ZMQ.Socket socketHealthcheck = instantiateSubscriber(5556, "ACTION");
 
+		logger.debug("Using ZMQ Version: " + ZMQ.getVersionString());
+
 		socket.setHWM(1);
 
 		Provider provider = registerHotkeys();
 
-		byte[] healthcheckMessage;
 		while(!shouldTerminate) {
 
 			while (messageBuffer.size() > 0) {
 				socket.send(String.valueOf(messageBuffer.poll()).getBytes(), 0);
 			}
 
-			healthcheckMessage = socketHealthcheck.recv(ZMQ.NOBLOCK);
+			byte[] healthcheckMessage = socketHealthcheck.recv(ZMQ.NOBLOCK);
 			if (healthcheckMessage != null) {
-
 				healthcheckTimer = 0;
-				healthcheckMessage = null;
-				logger.debug(healthcheckMessage);
-
 			}
 
 
