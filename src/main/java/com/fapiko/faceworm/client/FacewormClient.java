@@ -46,12 +46,6 @@ public class FacewormClient {
 				socket.send(String.valueOf(messageBuffer.poll()).getBytes(), 0);
 			}
 
-			byte[] healthcheckMessage = socketHealthcheck.recv(ZMQ.NOBLOCK);
-			if (healthcheckMessage != null) {
-				healthcheckTimer = 0;
-			}
-
-
 			healthcheckTimer += APPLICATION_LOOP_DELAY;
 			if (healthcheckTimer >= HEALTHCHECK_DELAY) {
 
@@ -61,7 +55,6 @@ public class FacewormClient {
 				socketHealthcheck.close();
 				socketHealthcheck = instantiateSubscriber(5556, "ACTION");
 
-				logger.debug("Healthcheck failwhale");
 
 				healthcheckTimer = 0;
 
